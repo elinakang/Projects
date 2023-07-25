@@ -1,0 +1,183 @@
+---
+title: "415_Final_Tree"
+author: "Christopher Baumgartner"
+date: "3/31/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+df = read.csv("Open-Ended\ datasets/open_data.csv")
+df_names = read.csv("Open-Ended\ datasets/open_vars.csv")
+```
+
+```{r}
+library(tidyverse)
+library(randomForest)
+```
+
+```{r}
+set.seed(415)
+df[is.na(df)] = 200
+ID = sample(nrow(df), nrow(df) * 0.7)
+train = df[ID,]
+test = df[-ID,]
+train = select(train, -c('FSDAD', 'FSDCH'))
+```
+
+```{r}
+set.seed(415)
+m_tries = c(1, 3, 5, 10, 15, 20, 50, 100)
+n_trees = c(1, 5, 10, 50, 100, 200, 500, 1000)
+
+train_errors = matrix(nrow = length(m_tries), ncol = length(n_trees))
+val_errors = matrix(nrow = length(m_tries), ncol = length(n_trees))
+
+ID = sample(nrow(train), nrow(train) * 0.7)
+sub_train = train[ID,]
+val = train[-ID,]
+```
+
+```{r}
+set.seed(415)
+for (i in 1:length(m_tries)) {
+  for (j in 1:length(n_trees)) {
+    # The model
+    model_rf = randomForest(as.factor(FSDHH) ~ ., data = sub_train, mtry = m_tries[i], ntree = n_trees[j])
+    
+    # Training error
+    y_train_rf = predict(model_rf, sub_train)
+    train_errors[i, j] = sum(ifelse(y_train_rf == sub_train$FSDHH, 0, 1)) / nrow(sub_train)
+    
+    # Validation error
+    y_val_rf = predict(model_rf, val)
+    val_errors[i, j] = sum(ifelse(y_val_rf == val$FSDHH, 0, 1)) / nrow(val)
+  }
+}
+```
+
+```{r}
+png(filename = "training_broad.png", height = 400, width = 600)
+plot(n_trees, train_errors[1,], type="o", col=rainbow(8)[1], ylim = c(0, 0.5), xlim = c(0, 50), ylab="Error", xlab="Number of Trees", main = "Training Error")
+lines(n_trees, train_errors[2,], type="o", col=rainbow(8)[2])
+lines(n_trees, train_errors[3,], type="o", col=rainbow(8)[3])
+lines(n_trees, train_errors[4,], type="o", col=rainbow(8)[4])
+lines(n_trees, train_errors[5,], type="o", col=rainbow(8)[5])
+lines(n_trees, train_errors[6,], type="o", col=rainbow(8)[6])
+lines(n_trees, train_errors[7,], type="o", col=rainbow(8)[7])
+lines(n_trees, train_errors[8,], type="o", col=rainbow(8)[8])
+
+legend("topright", horiz=T, legend=m_tries, col=rainbow(8),
+lty=1, cex=.75, title="Number of Variables Tested per Split")
+```
+
+```{r}
+png(filename = "val_broad.png", height = 400, width = 600)
+plot(n_trees, val_errors[,1], type="o", col=rainbow(8)[1], ylim = c(0.2, 0.6), ylab="Error", xlab="Number of Trees", main = "Validation Error")
+lines(n_trees, val_errors[,2], type="o", col=rainbow(8)[2])
+lines(n_trees, val_errors[,3], type="o", col=rainbow(8)[3])
+lines(n_trees, val_errors[,4], type="o", col=rainbow(8)[4])
+lines(n_trees, val_errors[,5], type="o", col=rainbow(8)[5])
+lines(n_trees, val_errors[,6], type="o", col=rainbow(8)[6])
+lines(n_trees, val_errors[,7], type="o", col=rainbow(8)[7])
+lines(n_trees, val_errors[,8], type="o", col=rainbow(8)[8])
+
+legend("topright", horiz=T, legend=m_tries, col=rainbow(8),
+lty=1, cex=.75, title="Number of Variables Tested per Split")
+```
+
+```{r}
+set.seed(415)
+m_tries2 = c(15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25)
+n_trees2 = c(100, 150, 200, 250, 300, 350, 400, 450, 500)
+
+train_errors2 = matrix(nrow = length(m_tries2), ncol = length(n_trees2))
+val_errors2 = matrix(nrow = length(m_tries2), ncol = length(n_trees2))
+
+for (i in 1:length(m_tries2)) {
+  for (j in 1:length(n_trees2)) {
+    # The model
+    model_rf = randomForest(as.factor(FSDHH) ~ ., data = sub_train, mtry = m_tries2[i], ntree = n_trees2[j])
+    
+    # Training error
+    y_train_rf = predict(model_rf, sub_train)
+    train_errors2[i, j] = sum(ifelse(y_train_rf == sub_train$FSDHH, 0, 1)) / nrow(sub_train)
+    
+    # Validation error
+    y_val_rf = predict(model_rf, val)
+    val_errors2[i, j] = sum(ifelse(y_val_rf == val$FSDHH, 0, 1)) / nrow(val)
+  }
+}
+```
+
+```{r}
+png(filename = "training_tight.png", height = 400, width = 600)
+plot(n_trees2, train_errors2[1,], type="o", col=rainbow(11)[1], ylab="Error", xlab="Number of Trees", main = "Training Error")
+lines(n_trees2, train_errors2[2,], type="o", col=rainbow(11)[2])
+lines(n_trees2, train_errors2[3,], type="o", col=rainbow(11)[3])
+lines(n_trees2, train_errors2[4,], type="o", col=rainbow(11)[4])
+lines(n_trees2, train_errors2[5,], type="o", col=rainbow(11)[5])
+lines(n_trees2, train_errors2[6,], type="o", col=rainbow(11)[6])
+lines(n_trees2, train_errors2[7,], type="o", col=rainbow(11)[7])
+lines(n_trees2, train_errors2[8,], type="o", col=rainbow(11)[8])
+lines(n_trees2, train_errors2[9,], type="o", col=rainbow(11)[9])
+lines(n_trees2, train_errors2[10,], type="o", col=rainbow(11)[10])
+lines(n_trees2, train_errors2[11,], type="o", col=rainbow(11)[11])
+
+legend("topright", horiz=T, legend=m_tries2, col=rainbow(11),
+lty=1, cex=.694, title="Number of Variables Tested per Split")
+```
+
+```{r}
+png(filename = "val_tight.png", height = 400, width = 600)
+plot(n_trees2, val_errors2[1,], type="o", col=rainbow(11)[1], ylim = c(0.23, 0.27), ylab="Error", xlab="Number of Trees", main = "Validation Error")
+lines(n_trees2, val_errors2[2,], type="o", col=rainbow(11)[2])
+lines(n_trees2, val_errors2[3,], type="o", col=rainbow(11)[3])
+lines(n_trees2, val_errors2[4,], type="o", col=rainbow(11)[4])
+lines(n_trees2, val_errors2[5,], type="o", col=rainbow(11)[5])
+lines(n_trees2, val_errors2[6,], type="o", col=rainbow(11)[6])
+lines(n_trees2, val_errors2[7,], type="o", col=rainbow(11)[7])
+lines(n_trees2, val_errors2[8,], type="o", col=rainbow(11)[8])
+lines(n_trees2, val_errors2[9,], type="o", col=rainbow(11)[9])
+lines(n_trees2, val_errors2[10,], type="o", col=rainbow(11)[10])
+lines(n_trees2, val_errors2[11,], type="o", col=rainbow(11)[11])
+
+legend("topright", horiz=T, legend=m_tries2, col=rainbow(11),
+lty=1, cex=.694, title="Number of Variables Tested per Split")
+```
+
+```{r}
+set.seed(415)
+col = ceiling(which.min(val_errors2) / nrow(val_errors2))
+row = nrow(val_errors2) - (nrow(val_errors2) * col - which.min(val_errors2))
+best_mtries = m_tries2[row]
+best_ntree = n_trees2[col]
+```
+
+```{r}
+set.seed(415)
+best_model_rf = randomForest(as.factor(FSDHH) ~ ., data = train, mtry = best_mtries, ntree = best_ntree)
+```
+
+```{r, fig.height=4, fig.width=3}
+png(filename = "variable_importance.png", height = 600, width = 450)
+varImpPlot(best_model_rf, sort = TRUE)
+```
+
+```{r}
+set.seed(415)
+# Training error
+y_train_rf = predict(best_model_rf, train)
+sum(ifelse(y_train_rf == train$FSDHH, 0, 1)) / nrow(train)
+
+# Test error
+y_test_rf = predict(best_model_rf, test)
+sum(ifelse(y_test_rf == test$FSDHH, 0, 1)) / nrow(test)
+```
+
+
+
+
