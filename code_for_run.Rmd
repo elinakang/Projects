@@ -1,0 +1,20 @@
+---
+title: "Untitled"
+output: html_document
+---
+```{r}
+
+library(leaps)
+model <- lm(y ~., data = kaggle_train.copy)
+Best_Subset <-
+    regsubsets(y~.,
+               data =kaggle_train.copy,
+               nbest = 1,      # 1 best model for each number of predictors
+               nvmax = NULL,    # NULL for no limit on number of variables
+               force.in = NULL, force.out = NULL,
+               method = "exhaustive")
+summary_best_subset <- summary(regsubsets.out)
+as.data.frame(summary_best_subset$outmat)
+which.max(summary_best_subset$adjr2)
+```
+

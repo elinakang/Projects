@@ -1,0 +1,48 @@
+---
+title: "Kaggle Model"
+author: "Christopher Baumgartner"
+date: "4/10/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+kaggle.train = read.csv("kaggle-datasets/kaggle_train\ copy.csv")
+kaggle.test = read.csv("kaggle-datasets/kaggle_test\ copy.csv")
+```
+
+```{r}
+library(tidyverse)
+library(randomForest)
+```
+
+```{r}
+ID = sample(nrow(kaggle.train), nrow(kaggle.train) * 0.7)
+sub_train = kaggle.train[ID,]
+val = kaggle.train[-ID,]
+```
+
+```{r}
+model = randomForest(y ~ ., data = sub_train, mtry = 140, ntrees = 1000, method = "anova")
+```
+
+```{r}
+y_pred = predict(model, sub_train)
+rss = sum((sub_train$y - y_pred)^2)
+tss = sum((sub_train$y - mean(sub_train$y))^2)
+1 - (rss / tss)
+```
+
+```{r}
+y_pred = predict(model, val)
+rss = sum((val$y - y_pred)^2)
+tss = sum((val$y - mean(val$y))^2)
+1 - (rss / tss)
+```
+
+
+
+

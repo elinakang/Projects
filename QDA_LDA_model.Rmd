@@ -1,0 +1,152 @@
+---
+title: "415 final"
+output: html_document
+---
+
+```{r}
+newdata <- read.csv(file = "/Users/elinakang/Downloads/stats-415-final-main-Open-Ended datasets/Open-Ended datasets/open_data.csv")
+
+
+library(MASS)
+attach(newdata)
+train_index <- sample(1:nrow(newdata), round(nrow(newdata)*0.95))
+train <- newdata[train_index, ]
+test <- newdata[-train_index, ]
+nrow(train)/nrow(newdata)
+foodtest <- FSDHH[-train_index]
+
+# lda 
+lda.fit <- lda(FSDHH ~ DBQ700 + DBD900 + DLQ130 + OCQ180, data=newdata, subset=train_index)
+lda.pred <- predict(lda.fit, test)
+lda.class <- lda.pred$class
+table(lda.class, foodtest)
+mean(lda.class == foodtest, na.rm=TRUE) 
+
+#qda
+qda.fit <- qda(FSDHH ~ DBQ700 + DBD900 + DLQ130 + OCQ180, data=newdata, subset=train_index)
+qda.class <- predict(qda.fit, test)$class
+table(qda.class, foodtest)
+mean(qda.class == foodtest, na.rm=TRUE) 
+```
+
+```{r}
+# lda 
+FSDHH <- as.factor(FSDHH)
+lda.fit <- lda(FSDHH ~ CBD071 + CBD091+ DBQ700 + DLQ020, data=train)
+lda.pred <- predict(lda.fit, test)
+lda.class <- lda.pred$class
+table(lda.class, foodtest)
+mean(lda.class == foodtest, na.rm=TRUE) 
+
+#qda , most accurate so far?
+qda.fit <- qda(FSDHH ~ CBD121 + DBQ301, data=newdata, subset=train_index)
+qda.class <- predict(qda.fit, test)$class
+table(qda.class, test$FSDHH)
+mean(qda.class == foodtest, na.rm=TRUE) 
+table(test$FSDHH)
+qda.fit
+
+qda.fit2 <- qda(FSDHH ~ CBD121 + DBQ700, data=newdata, subset=train_index)
+qda.class2 <- predict(qda.fit2, test)$class
+table(qda.class2, test$FSDHH)
+mean(qda.class2 == foodtest, na.rm=TRUE) 
+table(test$FSDHH)
+qda.fit2
+```
+
+
+Splitting up the food security groups into an equal num in test and training
+```{r}
+table(FSDHH)
+lvl1 = which (FSDHH == "1")
+lvl2 = which(FSDHH == "2")
+lvl3 = which(FSDHH == "3")
+lvl4 = which(FSDHH == "4")
+train_id = c(sample(lvl1, size=trunc(0.7 * length(lvl1))),
+             sample(lvl2, size=trunc(0.7 * length(lvl2))), 
+             sample(lvl3, size=trunc(0.7 * length(lvl3))), 
+             sample(lvl4, size=trunc(0.7 * length(lvl4))))
+train=newdata[train_id, ]
+test=newdata[-train_id, ]
+table(train$FSDHH)
+#plot
+pairs(train[56:60],
+     col=c("blue", "green","red", "purple")[train$FSDHH],
+     pch=c(1,2,3,4)[train$FSDHH])
+#fit
+train$FSDHH <- as.factor(train$FSDHH)
+test$FSDHH <- as.factor(test$FSDHH)
+foodtest <- FSDHH[-train_index]
+#qda 
+qda.fit3 <- qda(FSDHH ~ FSD151+INDFMMPI, data=train)
+qda.class3 <- predict(qda.fit3, test)$class
+qda.class4 <- predict(qda.fit3, train)$class
+table(qda.class3, test$FSDHH)
+mean(qda.class3 == test$FSDHH, na.rm=TRUE) 
+mean(qda.class4 == train$FSDHH, na.rm=TRUE) 
+
+# fit lda
+lda.fit3 <- lda(FSDHH ~ FSD151 + INDFMMPI, data=train)
+lda.class3 <- predict(lda.fit3, test)$class
+table(lda.class3, test$FSDHH)
+#test error
+mean(lda.class3 == test$FSDHH, na.rm=TRUE) 
+
+#train error
+lda.class4 <- predict(lda.fit3, train)$class
+mean(lda.class4 == train$FSDHH, na.rm=TRUE) 
+
+
+# FSD151 INDFMMPI IND310 HO9D050 CBD071 INDFMMPC CBD121 INQ320 CBD111 IND235 FSQ012 
+```
+
+There are several reasons why LDA is a better option than logistic regression:
+
+- If there are well-separated classes the parameter estimates for logistic regression can be unstable,
+- If we have a small sample size and an approximately normal distribution of X in each class, the LDA is more stable than logistic regression,
+- When there are more than two response classes, LDA is a more popular method.
+
+The output for LDA often uses a confusion matrix to display the True status versus the predicted status for the qualitative response variable. Elements on the diagonal represent correct predictions and off-diagonal represent misclassifications.
+
+QDA assumes the observations come from a Gaussian distribution like LDA but QDA assumes each class has its own covariance matrix. QDA assumes that an observation from the kth class is of the form $X\sim N(\mu_k, \Sigma_k)$ where $\Sigma_k$ is a covariance matrix for the kth class. 
+
+For the FSDHH classification, about 58.687% of observations are classification 1. By classifying each observation "1", there would be a 58.687% accuracy rate. I used forward selection to fit the model to the FSDHH variable by each variable from random forest and found that after 2 variables, accuracy decreased consistently for both LDA and QDA. 
+
+The best performing predictors for classifying food security is HH emergency food received and family monthly poverty level index. Other demographic and dietary variables were not found to have a significant effect on classification accuracy. Furthermore, health predictors and indices were also not found to have significant effect on classification accuracy. 
+
+```{r}
+#plot 
+hi<-c(59,89)
+
+decisionplot <- function(model, data,class=NULL, predict_type="class", resolution=100, showgrid=TRUE,...){
+  if(!is.null(class)) cl <- data[,class] else cl<-1
+  data<-data[,hi]
+  k<-length(unique(cl))
+  
+  plot(data, col=as.integer(cl)+1L, pch=as.integer(cl)+1L, ...)
+  
+  r<-sapply(data,range,na.rm=TRUE)
+  xs <- seq(r[1,1], r[2,1], length.out=resolution)
+  ys <- seq(r[1,2], r[2,2], legnth.out=resolution)
+  g<-cbind(rep(xs,each=resolution), rep(ys,time=resolution))
+  colnames(g)<- colnames(r)
+  g<-as.data.frame(g)
+  
+  p <- predict(model, g, type = predict_type)
+  if(is.list(p)) p <- p$class
+  p <- as.factor(p)
+  
+  if(showgrid) points(g, col = as.integer(p)+1L, pch = ".")
+   z <- matrix(as.integer(p), nrow = resolution, byrow = TRUE)
+   contour(xs, ys, z, add = TRUE, drawlabels = FALSE,
+  lwd = 2, levels = (1:(k-1))+.5)
+   
+   invisible(z)
+}
+
+#x<-newdata[1:150,c("FSD151", "INDFMMPI", "FSDHH")]
+model<-lda(FSDHH~FSD151+INDFMMPI, data=newdata)
+decisionplot(model,newdata,class="FSDHH",main="LDA")
+
+```
+

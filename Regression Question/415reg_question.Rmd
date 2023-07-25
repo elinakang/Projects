@@ -1,0 +1,194 @@
+---
+title: "415finalopenrmd"
+output: html_document
+date: '2022-04-16'
+---
+
+```{r}
+open_data_new = read.csv("C:/Users/Lyllian/Desktop/415 final/open_data.csv", stringsAsFactors = T)
+head(open_data_new)
+```
+
+**Data Tidying**
+
+```{r}
+open_data_new = open_data_new %>% filter(RIDAGEYR >= 5, HUQ051 != 77, HUQ051 != 99) %>% 
+  select(-c(HEALTH_INS, DR1_300, DBQ301, DBQ330, DUQ410, HIQ210, HUQ030, HUQ071, 
+            MCQ230A:MCQ230D, OCD150,FSDAD,FSDCH,FSD230,FSQ162,FSQ760, INQ300, DRQSDIET,DR1TKCAL,DR1TALCO,SMQ670)) %>% 
+  mutate(HLTH_IMPRV = case_when(HUQ020 == 1 ~ 1, HUQ020 == 2 ~ -1, HUQ020 == 3 ~ 0),
+         INQ_EMPLY = case_when(INQ020 == 1 | INQ012 == 1 ~ 1,
+                               INQ020 == 0 & INQ012 == 0 ~ 0),
+         INQ_RET_DIS = case_when(INQ030 == 1 | INQ060 == 1 | INQ080 == 1 ~ 1,
+                             INQ030 == 0 & INQ060 == 0 & INQ080 == 0 ~ 0),
+         INQ_ASST = case_when(INQ090 == 1 | INQ132 == 1 ~ 1,
+                              INQ090 == 0 & INQ132 == 0 ~ 0),
+         INQ_OTHER = case_when(INQ140 == 1 | INQ150 == 1 ~ 1,
+                               INQ140 == 0 & INQ150 == 0 ~ 0),
+         GENDR = factor(RIAGENDR),
+         missing_rowdata = rowSums(is.na(.)),
+         .keep = "unused") %>% filter(missing_rowdata < 46)
+```
+
+*factoring the binary variables & making the NA values = -1*
+
+```{r}
+num_unique = sapply(open_data_new[,-1], function(x) length(unique(x)))
+bin_fctrs = names(which(num_unique < 5))
+bin_fctrs = bin_fctrs[-c(23,37)]
+open_data_new[,all_of(bin_fctrs)] = sapply(open_data_new[,all_of(bin_fctrs)], function(x) replace_na(x, -1))
+```
+
+```{r}
+to_fctr = sapply(open_data_new[,all_of(bin_fctrs)], function(x) unique(x))
+to_fctr = to_fctr[-c(23,37)]
+open_data_new = rstatix::convert_as_factor(open_data_new, vars = names(to_fctr))
+open_data_new = open_data_new %>% mutate(across(all_of(names(to_fctr)), ~fct_relevel(., '0')))
+```
+
+*more random NA editing*
+
+```{r}
+open_data_new = open_data_new %>% mutate(across(CBD071:CBD131, ~na_if(., 777777))) %>% mutate(across(CBD071:CBD131, ~na_if(.,999999)))
+open_data_new$DUQ230 = na_if(open_data_new$DUQ230, 999)
+open_data_new$FSD760N = na_if(open_data_new$FSD760N, 99)
+open_data_new$HOD050 = na_if(open_data_new$HOD050, 777)
+open_data_new$HUD080 = na_if(open_data_new$HUD080, 99999)
+open_data_new$IND235[open_data_new$IND235 > 70] = NA
+open_data_new$IND310[open_data_new$IND310 > 70] = NA
+open_data_new$OCQ180[open_data_new$OCQ180 > 85] = NA
+```
+
+```{r}
+adults = open_data_new %>% filter(RIDAGEYR >= 18) %>% select(-c(FR_LUNCH, missing_rowdata))
+```
+
+*Matrix Completion*
+
+```{r}
+# Adults
+na_matAD = adults %>% select(DR1TNUMF:BMXHT, CBD071:CBD131, DBD895, DBD900, DLQ100, DLQ130, DLQ140, DLQ170, DPQ100, DUQ230, DUQ272:DUQ352,
+                  FSDHH, FSD230N, FSD760N, HOD050, HUD080, IND235, INDFMMPI, IND310, OCQ180, SLD012, ALQ_USE, DEP_SCORE)
+ADhat = na_matAD
+```
+
+```{r}
+xbarAD = colMeans(ADhat, na.rm = TRUE)
+
+for(i in 1:length(xbarAD)) {
+  if(length(which(is.na(ADhat[,i]) == T)) != 0) {
+    na_index1 = c(which(is.na(ADhat[,i]) == T))
+    ADhat[na_index1, i] = xbarAD[i]
+  }
+  else{ADhat[,i] = ADhat[,i]}
+}
+```
+
+```{r}
+ismissAD = is.na(na_matAD)
+mssoldAD = mean((scale(na_matAD, xbarAD, FALSE)[!ismissAD])^2)
+mssAD = mean(na_matAD[!ismissAD]^2)
+
+thresh = 1e-7
+rel_err = 1
+iter = 0
+
+fit.svd <- function(X, M = 1) {
+  svdob <- svd(X)
+  with(svdob, u[, 1:M, drop = FALSE] %*% (d[1:M]*t(v[, 1:M, drop = FALSE])))
+}
+```
+
+```{r}
+while(rel_err > thresh) {
+  iter = iter + 1
+  ADapp = fit.svd(ADhat, M = 1)
+  ADhat[ismissAD] = ADapp[ismissAD]
+  mss = mean(((na_matAD - ADapp)[!ismissAD])^2)
+  rel_err = (mssoldAD - mss)/mssAD
+  mssoldAD = mss
+  cat("Iter:", iter, "MSS:", mss, "Rel. Err:", rel_err, "\n")
+}
+```
+
+*New Data w/o NA Values*
+
+```{r}
+adults_comp = adults
+adults_comp[,c(all_of(colnames(na_matAD)))] = ADhat
+adults_comp = adults_comp %>% filter(DR1TNUMF <= 50, BMXHT <= 203, PULSE <= 143, ALQ_USE <= 365, INDFMMPI <= 5)
+adults_comp$IND235[adults_comp$IND235 > 12] = 12
+summary(adults_comp)
+```
+
+
+**Variable Selection**
+
+```{r}
+adults_comp = adults_comp %>% select(DMDCITZN:RIDAGEYR, DR1TNUMF, DR1TVB12, DR1TVD, DR1_320Z, BMXWT:CBD131, DBD895, DLQ040, DLQ080:DLQ110, DLQ140, DLQ150,
+                       DUQ230:FSDHH, HAS_INS:INDFMMPI, MCQ220:SLD012, SEXUALITY:HLTHCR_RTN, GRC_ACCS:MDCD_INS, HLTH_IMPRV:GENDR, WTMEC2YR)
+```
+
+```{r}
+adults_lm = lm(HUQ051 ~., adults_comp)
+summary(adults_lm)
+```
+
+*Lasso*
+
+```{r}
+AD_matrix = model.matrix(HUQ051 ~., adults_comp)[,-1]
+AD_y = adults_comp$HUQ051
+```
+
+```{r}
+set.seed(1)
+cv_lassoAD = cv.glmnet(AD_matrix, AD_y, alpha = 1)
+plot(cv_lassoAD)
+```
+
+```{r}
+bestlam_AD = cv_lassoAD$lambda.min
+```
+
+```{r}
+options(scipen = 99)
+set.seed(1)
+predict(cv_lassoAD, type = "coefficients", s = bestlam_AD)
+```
+
+**Correlations**
+
+```{r}
+lares::corr_var(adults_comp, var = HUQ051, clean = T)
+```
+
+**Extra Variable Editing for lm**
+
+```{r}
+adults_comp = adults_comp %>% mutate(DEP_ANX_MED = case_when(DLQ110 == 1 | DLQ150 == 1 ~ 1,
+                                                             DLQ110 == 0 & DLQ150 == 0 ~ 0), .keep = "unused")
+adults_comp$DEP_ANX_MED = adults_comp$DEP_ANX_MED %>% replace_na(-1)
+adults_comp$DEP_ANX_MED = factor(adults_comp$DEP_ANX_MED, levels = c('0','1','-1'))
+adults_comp$DLQ080 = fct_relevel(adults_comp$DLQ080, '0')
+adults_comp$DEP_ANX_MED = fct_relevel(adults_comp$DEP_ANX_MED, '0')
+adults_comp$HLTHCR_RTN = relevel(adults_comp$HLTHCR_RTN, "Dr./HMO")
+adults_comp$EDU_LVL = relevel(adults_comp$EDU_LVL, "College/Grad or >")
+adults_comp$SEXUALITY = relevel(adults_comp$SEXUALITY, "Straight")
+adults_comp$MARTL_ST = relevel(adults_comp$MARTL_ST, "Married")
+adults_comp$RACE_ETH = relevel(adults_comp$RACE_ETH, "White")
+adults_comp$GENDR = fct_recode(adults_comp$GENDR, "Male" = '1', "Female" = '0')
+```
+
+
+(this is the linear model based on the lasso & correlation stuff)
+
+```{r}
+adults_lm = lm(HUQ051 ~ HLTHCR_RTN+HUD080+OCQ180+RIDAGEYR+HIQ270+HAS_INS+INQ_RET_DIS+HUQ010+DLQ080+INQ_EMPLY+HUQ090+MDCD_INS+
+             EDU_LVL+DMDFMSIZ+DUQ272+MCQ220+MARTL_ST+RACE_ETH+TAP_SRC+SMK_CRNT+DEP_SCORE+HLTH_IMPRV+GENDR+DEP_ANX_MED+FSDHH+DEP_SCORE*DEP_ANX_MED, adults_comp)
+summary(adults_lm)
+```
+
+```{r}
+
+```
+

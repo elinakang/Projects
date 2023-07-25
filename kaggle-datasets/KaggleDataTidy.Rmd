@@ -1,0 +1,95 @@
+---
+title: "Data Import/Tidying"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(haven)
+```
+
+*reading in all .xpt files*
+
+```{r}
+yrs_vec = c(9,11,13,15,17)
+
+for(i in yrs_vec) {
+  assign(paste("bmx", i, sep = "_"),
+    eval(read_xpt(paste0("/Users/simerlyl/Desktop/Stats 415/415 Final/BMX data/BMX_", i, ".XPT"))))
+  
+  assign(paste("bpx", i, sep = "_"),
+    eval(read_xpt(paste0("/Users/simerlyl/Desktop/Stats 415/415 Final/BPX data/BPX_", i, ".XPT"))))
+  
+  assign(paste("demo", i, sep = "_"),
+    eval(read_xpt(paste0("/Users/simerlyl/Desktop/Stats 415/415 Final/DEMO data/DEMO_", i, ".XPT"))))
+  
+  assign(paste("dr1tot", i, sep = "_"),
+    eval(read_xpt(paste0("/Users/simerlyl/Desktop/Stats 415/415 Final/DR1TOT data/DR1TOT_", i, ".XPT"))))
+  
+  assign(paste("smq", i, sep = "_"),
+    eval(read_xpt(paste0("/Users/simerlyl/Desktop/Stats 415/415 Final/SMQ data/SMQ_", i, ".XPT"))))
+  
+  assign(paste("tchol", i, sep = "_"),
+    eval(read_xpt(paste0("/Users/simerlyl/Desktop/Stats 415/415 Final/TCHOL data/TCHOL_", i, ".XPT"))))
+}
+```
+
+*joining dataframes w/ matching years*
+
+```{r}
+for(i in yrs_vec) {
+  assign(paste("df_list", i, sep = ""),
+    eval(list(get(paste0("bmx_", i)), get(paste0("bpx_", i)), get(paste0("demo_", i)), 
+           get(paste0("dr1tot_", i)), get(paste0("smq_", i)), get(paste0("tchol_", i)))))
+  
+  assign(paste("dta", i, sep = "_"),
+    eval(get(paste0("df_list", i)) %>% reduce(full_join, by = 'SEQN')))
+}
+```
+
+*removing unnecessary variables & saving data files for each year*
+
+```{r}
+for(i in yrs_vec) {
+  assign(paste("dta", i, sep = "_"),
+    eval(get(paste0("dta_", i)) %>% 
+           select(-c("SMDUPCA", "SMD100BR", "DR1DRSTZ", "DRABF", "RIDSTATR"))))
+}
+```
+
+```{r}
+for(i in yrs_vec) {
+  assign(paste("data", i, sep = "_"),
+      eval(tempfile(tempdir("/Users/simerlyl/Desktop/415 Final/"), fileext = "csv")))
+  
+  write_csv(get(paste0("dta_", i)), paste0("/Users/simerlyl/Desktop/Stats 415/415 Final/merged data/data_", i, ".csv"))
+}
+```
+
+**Kaggle Datasets**
+
+```{r}
+train_data = read_csv("/Users/simerlyl/Desktop/415 Final/Kaggle Data/train.csv")
+test_data = read_csv("/Users/simerlyl/Desktop/415 Final/Kaggle Data/test.csv")
+```
+
+```{r}
+full_data = bind_rows(dta_9, dta_11, dta_13, dta_15, dta_17)
+```
+
+```{r}
+train_data = train_data %>% left_join(full_data, by = "SEQN") %>% select(where(~!any(is.na(.))))
+```
+
+```{r}
+test_data = test_data %>% left_join(full_data, by = "SEQN") %>% select(where(~!any(is.na(.))))
+```
+
+```{r}
+predicted_data = test_data %>% select(SEQN)
+```
+
+```{r}
+write_csv(train_data, "/Users/simerlyl/Desktop/415 Final/Kaggle Data/kaggle_train.csv")
+write_csv(test_data, "/Users/simerlyl/Desktop/415 Final/Kaggle Data/kaggle_test.csv")
+```

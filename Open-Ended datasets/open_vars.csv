@@ -1,0 +1,107 @@
+var_labels,var_names
+Respondent sequence number,SEQN
+Money spent at supermarket/grocery store,CBD071
+Money spent on nonfood items,CBD091
+Money spent on food at other stores,CBD111
+Money spent on eating out,CBD121
+Money spent on carryout/delivered foods,CBD131
+How healthy is the diet,DBQ700
+Community/Government meals delivered,DBQ301
+Eat meals at Community/Senior center,DBQ330
+# of meals not home prepared,DBD895
+# of meals from fast food or pizza place,DBD900
+Have serious difficulty hearing?,DLQ010
+Have serious difficulty seeing?,DLQ020
+Have serious difficulty concentrating?,DLQ040
+Have serious difficulty walking?,DLQ050
+Have difficulty dressing or bathing?,DLQ060
+Have difficulty doing errands alone?,DLQ080
+"How often do you feel worried, anxious?",DLQ100
+Take medication for these feelings?,DLQ110
+How worried or anxious were you?,DLQ130
+How often do you feel depressed?,DLQ140
+Take medication for depression?,DLQ150
+How depressed did you feel?,DLQ170
+Difficulty these problems have caused,DPQ100
+Ever used marijuana or hashish,DUQ200
+# days used marijuana or hashish/month,DUQ230
+Ever used cocaine/heroin/methamphetamine,DUQ240
+# of time you used cocaine,DUQ272
+# of days used heroin/month,DUQ320
+# times used methamphetamine,DUQ352
+# times injected drugs/lifetime,DUQ410
+Ever been in rehabilitation program,DUQ430
+Household food security category,FSDHH
+Adult food security category,FSDAD
+Child food security category,FSDCH
+HH Emergency food received,FSD151
+HH FS benefit: receive in last 12 months,FSQ012
+HH FS benefit: #people currently receive,FSD230N
+HH WIC benefit: receive in last 12 month,FSQ162
+HH WIC benefit: no. people received,FSD760N
+Covered by health insurance,HIQ011
+Do plans cover prescriptions?,HIQ270
+Time when no insurance in past year?,HIQ210
+Number of rooms in home,HOD050
+"Home owned, bought, rented, other",HOQ065
+General health condition,HUQ010
+Health now compared with 1 year ago,HUQ020
+Routine place to go for healthcare,HUQ030
+Type place most often go for healthcare,HUQ041
+#times receive healthcare over past year,HUQ051
+How long since last healthcare visit,HUQ061
+Overnight hospital patient in last year,HUQ071
+#times overnite hospital patient/last yr,HUD080
+Seen mental health professional/past yr,HUQ090
+Income from wages/salaries,INQ020
+Income from self employment,INQ012
+Income from Social Security or RR,INQ030
+Income from other disability pension,INQ060
+Income from retirement/survivor pension,INQ080
+Income from Supplemental Security Income,INQ090
+Income from state/county cash assistance,INQ132
+Income from interest/dividends or rental,INQ140
+Income from other sources,INQ150
+Monthly family income,IND235
+Family monthly poverty level index,INDFMMPI
+Family monthly poverty level category,INDFMMPC
+"Family has savings more than $20,000",INQ300
+Total savings/cash assets for the family,IND310
+How do you get to the grocery store?,INQ320
+Ever told you had cancer or malignancy,MCQ220
+Type of work done last week,OCD150
+Hours worked last week at all jobs,OCQ180
+Sleep hours,SLD012
+Ever told doctor had trouble sleeping?,SLQ050
+How often feel overly sleepy during day?,SLQ120
+Citizenship status,CITZN
+Education level,EDU_LVL
+Marital status,MRTL_ST
+Total number of people in the Family,FAM_SZ
+Gender,GNDR
+Age (years),AGE
+Race/Ethnicity,RACE_ETH
+Diet Type,DIET
+Number of foods/beverages reported,NFOOD_TOT
+Energy (kcal),KCAL_TOT
+Vitamin B12 (mcg),VB12_TOT
+Vitamin C (mg),VC_TOT
+Vitamin D (D2 + D3) (mcg),VD_TOT
+Caffeine (mg),CAFF_TOT
+Alcohol (gm),ALQ_TOT
+Compare food consumed yesterday to usual,FD_CONS
+Total plain water drank yesterday (gm),H2O_TOT
+Tap water source,TAP_H2O
+60 sec HR (30 sec HR * 2)/60 sec. pulse (30 sec. pulse * 2),PULSE
+Weight (kg),WGHT
+Standing Height (cm),HGHT
+Do you now smoke cigarettes?,SMK_CRNT
+Tried to quit smoking,SMK_FREQ
+Health Insurance Coverage,HEALTH_INS
+Type of Cancer,CANCER_TYPE
+Sexuality,SEXUALITY
+# days/yr drink alcohol,ALQ_USE
+BP Category,BP_LEVELS
+Free or reduced lunch,FR_LUNCH
+Number of people 17 years or younger in household,NUM_DPDNTS
+Depression Screening Score,DEP_SCORE

@@ -1,0 +1,352 @@
+---
+title: "OpenEndedData"
+output: html_document
+date: '2022-03-28'
+---
+
+```{r}
+library(tidyverse)
+library(haven)
+```
+
+**2015 Data** (all)
+
+```{r}
+data15 = read_csv("C:/Users/Lyllian/Desktop/415 final/data_15.csv")
+```
+
+```{r}
+DMD_vars = str_subset(colnames(data15), "(DMD)(?!HR)") %>% unlist()
+```
+
+```{r}
+BPAVGS = data15 %>% select(paste0("BPXSY",1:4), paste0("BPXDI",1:4)) %>% rowwise() %>%
+  transmute(BPXSYM = mean(c_across(1:4), na.rm = T), 
+            BPXDIM = mean(c_across(5:8), na.rm = T))
+```
+
+```{r}
+data15 = data15 %>% select(SEQN, all_of(DMD_vars[-c(1,3,7,11,12)]), RIAGENDR, RIDAGEYR, RIDRETH3,
+                          DRQSDIET, DR1TNUMF, DR1TKCAL, DR1TVB12, DR1TVC, DR1TVD, DR1TCAFF,
+                          DR1TALCO, DR1_300, DR1_320Z, DR1TWS, BPXCHR, BPXPLS, BMXWT, BMXHT,
+                          SMQ040, SMQ670, WTMEC2YR, SDMVPSU, SDMVSTRA)
+
+data15 = data.frame(data15, BPAVGS)
+```
+
+**New 2015 Data** (all)
+
+```{r}
+filenames = list.files("C:/Users/Lyllian/Desktop/415 final/NewData", pattern="*.xpt", full.names=TRUE)
+df_list = lapply(filenames, read_xpt)
+```
+
+```{r}
+df_list[[1]] = df_list[[1]] %>% select(SEQN, ALQ120Q, ALQ120U)
+df_list[[3]] = df_list[[3]] %>% select(SEQN, DBQ700, DBQ301, DBQ330, DBQ390, DBQ421, DBD895, DBD900)
+df_list[[6]] = df_list[[6]] %>% select(SEQN, DUQ200, DUQ230, DUQ240, DUQ272, DUQ320, DUQ352, DUQ410, DUQ430)
+df_list[[7]] = df_list[[7]] %>% select(SEQN, FSDHH, FSDAD, FSDCH, FSD151, FSQ165, FSQ012, FSD230, FSD230N, FSQ162, FSQ760, FSD760N)
+df_list[[8]] = df_list[[8]] %>% select(SEQN:HIQ031AA, HIQ270, HIQ210)
+df_list[[12]] = df_list[[12]] %>% select(SEQN, MCQ220:MCQ230D) ## cancer diagnoses (if just want yes/no: `MCQ220`; o.w. --> gets all specific cancer diagnoses --> mutated into `CANCER_TYPE`)
+df_list[[13]] = df_list[[13]] %>% select(SEQN:OCQ180)
+df_list[[14]] = df_list[[14]] %>% select(SEQN, SLD012, SLQ050, SLQ120)
+df_list[[15]] = df_list[[15]] %>% select(SEQN, SXQ295, SXQ296)
+```
+
+```{r}
+added_dta = df_list %>% reduce(full_join, by = 'SEQN')
+open_data = full_join(data15, added_dta, by = 'SEQN')
+```
+
+**Tidying Data** (all)
+
+```{r}
+var_labels = vector()
+var_names = vector()
+
+for(i in 1:ncol(added_dta)) {
+  var_labels[i] = attr(added_dta[[i]], "label")
+  var_names[i] = colnames(added_dta[i])
+}
+
+open_variables = data.frame(var_labels, var_names)
+```
+
+*Binary Variables* (v1)
+
+```{r}
+binary_vars = c(1,2,7,9)
+unique_vals = sapply(open_data, function(x) length(sort(unique(x))))
+vars = open_data %>% select(all_of(which(unique_vals %in% 1:4)))
+
+## changed code below -> use this to convert 'refused'/'don't know' --> NA
+for(i in 1:ncol(vars)){
+  if(all(sort(unique(vars[[i]])) %in% binary_vars) == T) {
+    open_data[[paste(colnames(vars[i]))]] = plyr::mapvalues(open_data[[paste(colnames(vars[i]))]],
+                                                      c(1, 2, 7, 9), c(1, 0, NA, NA), warn_missing = F)
+  }
+}
+```
+
+> **UPDATE** (v2)
+
+```{r}
+binary_vars = c(1,2,7,9)
+unique_vals = sapply(open_data, function(x) length(sort(unique(x))))
+vars = open_data %>% select(all_of(which(unique_vals %in% 1:4)))
+
+## update: use this to convert 'refused'/'don't know' --> -1
+for(i in 1:ncol(vars)){
+  if(all(sort(unique(vars[[i]])) %in% binary_vars) == T) {
+    open_data[[paste(colnames(vars[i]))]] = plyr::mapvalues(open_data[[paste(colnames(vars[i]))]],
+                                                      c(1, 2, 7, 9), c(1, 0, -1, -1), warn_missing = F)
+  }
+}
+```
+
+-------------------------
+
+> **UPDATE** (v2)
+
+*Missing Vals & Variable Edits*
+
+```{r}
+## piping 'No' responses fr. prev. ?'s to skipped ?'s (i.e., getting rid of fake NA's)
+open_data$DBD900[open_data$DBD895 == 0] = 0
+open_data$DLQ130[open_data$DLQ100 == 5] = 0
+open_data$DLQ170[open_data$DLQ140 == 5] = 0
+
+open_data$DUQ230[open_data$DUQ200 == 0] = 0
+open_data$DUQ272[open_data$DUQ240 == 0] = 0
+open_data$DUQ320[open_data$DUQ240 == 0] = 0
+open_data$DUQ352[open_data$DUQ240 == 0] = 0
+
+open_data$FSQ012[open_data$FSQ165 == 0] = 0
+open_data$FSD230[open_data$FSQ012 == 0] = 0
+open_data$FSD230N[open_data$FSD230 == 0] = 0
+
+open_data$FSQ162[open_data$DMDHHSZA == 0 & (open_data$RIAGENDR == 0 & between(open_data$RIDAGEYR, 20, 59) == F)] = 0
+open_data$FSQ162[open_data$DMDHHSZA == 0 & (open_data$RIAGENDR == 1 & open_data$DMDFMSIZ == 1)] = 0
+open_data$FSQ760[open_data$FSQ162 == 0] = 0 
+open_data$FSD760N[open_data$FSQ760 == 0] = 0
+
+open_data$HIQ270[open_data$HIQ011 == 0 | open_data$HIQ031AA == 40] = 0
+open_data$HIQ210[open_data$HIQ011 == 0 | open_data$HIQ031AA == 40] = 1
+
+open_data$HUQ041[open_data$HUQ030 == 2] = 0
+open_data$HUQ061 = open_data$HUQ061 %>% replace_na(1)
+open_data$HUD080[open_data$HUQ071 == 0] = 0
+open_data$HUQ090[open_data$RIDAGEYR < 4] = 0
+
+open_data$INQ320[open_data$INQ320 == 66] = 0
+open_data$IND310[open_data$INQ300 == 1] = 6
+
+open_data$OCD150[open_data$RIDAGEYR < 16] = 4
+open_data$OCQ180[open_data$OCD150 %in% 2:4] = 0
+```
+
+```{r}
+## converting 'refused' & 'don't know' responses to be considered NA; then converting 'NA' vals to integers
+open_data$DBD895[open_data$DBD895 == 5555] = 22
+open_data$DBD895[open_data$DBD895 == 9999] = NA
+open_data$DBD900[open_data$DBD900 == 5555] = 22
+open_data$DBD900[open_data$DBD900 == 7777 | open_data$DBD900 == 9999] = NA
+
+
+open_data$DLQ100[open_data$DLQ100 == 5] = 0 ## now "never"/"none" = 0, not 5
+
+open_data$DLQ130[open_data$DLQ130 == 2] = 4
+open_data$DLQ130[open_data$DLQ130 == 3] = 2
+open_data$DLQ130[open_data$DLQ130 == 4] = 3
+
+open_data$DLQ140[open_data$DLQ140 == 5] = 0 ## now "never"/"none" = 0, not 5
+
+open_data$DLQ170[open_data$DLQ170 == 2] = 4
+open_data$DLQ170[open_data$DLQ170 == 3] = 2
+open_data$DLQ170[open_data$DLQ170 == 4] = 3
+
+open_data$DMDMARTL[open_data$DMDMARTL == 77 | open_data$DMDMARTL == 99] = 7
+open_data$DMDMARTL = open_data$DMDMARTL %>% replace_na(7)
+
+open_data$DR1TWS[open_data$DR1TWS == 4] = 0 ## now "never"/"none" = 0, not 5
+open_data$DR1TWS[open_data$DR1TWS == 99] = 4
+open_data$DR1TWS = open_data$DR1TWS %>% replace_na(4)
+
+open_data$HUQ061[open_data$HUQ061 == 2] = 1 ## recoding to make "< 1 yr." level for simplicity
+
+open_data$HOQ065[open_data$HOQ065 == 7 | open_data$HOQ065 == 9] = 3
+open_data$HOQ065 = open_data$HOQ065 %>% replace_na(3)
+
+open_data$INQ320[open_data$INQ320 == 77] = 9
+open_data$INQ320 = open_data$INQ320 %>% replace_na(9)
+
+open_data$SMQ040[open_data$SMQ040 == 2] = 1
+open_data$SMQ040[open_data$SMQ040 == 3] = 0
+
+open_data = open_data %>% rename("HAS_INS" = HIQ011)
+```
+
+-------------------------
+
+*Multi-Level Factored Variables* (v1)
+
+```{r}
+multi_fctrs = open_data %>% select(DMDMARTL, RIDRETH3, DR1_300, DR1TWS, SMQ040, DBQ700, DLQ100, DLQ130,
+                           DLQ140, DLQ170, DPQ100, FSDHH:FSDCH, HOQ065, HUQ010:HUQ061, IND235, 
+                           INDFMMPC, IND310, INQ320, OCD150, SLQ120) %>% colnames()
+
+open_data[,all_of(multi_fctrs)] = sapply(open_data[,all_of(multi_fctrs)], function(x) factor(x))
+```
+
+> **UPDATE** (v2)
+
+```{r}
+open_data = open_data %>% mutate(MARTL_ST = fct_recode(factor(DMDMARTL), "Married" = '1', "Wid." = '2', "Div." = '3', "Sep." = '4',
+                                                                         "Never Married" = '5', "Live w/ Partner" = '6', "Other/NA" = '7'),
+                                 RACE_ETH = fct_recode(factor(RIDRETH3), "Mex. Amer." = '1', "Hisp., Other" = '2' , "White" = '3',
+                                                                         "Black" = '4', "Asian" = '6', "Other/Mlt.-Rac." = '7'),
+                                 TAP_SRC = fct_recode(factor(DR1TWS), "None" = '0', "Commun." = '1', "Well" = '2', "Spring" = '3', "Other/NA" = '4'),
+                                 SMK_CRNT = factor(SMQ040),
+                                 HM_ARNGMT = fct_recode(factor(HOQ065), "Own" = '1', "Rent" = '2', "Other/NA" = '3'),
+                                 HLTHCR_RTN = fct_recode(factor(HUQ041), "None" = '0', "Clinic/Hlth. Cntr." = '1', "Dr./HMO" = '2',
+                                                                         "ER" = '3', "Hosp. OD" = '4', "Other" = '5', "No pref." = '6'),
+                                 HLTHCR_HSTY = fct_recode(factor(HUQ061), "< 1 yr." = '1', "1-2 yrs." = '3', "2-5 yrs." = '4', "> 5 yrs." = '5', "Never" = '6', "Unknown" = '99'),
+                                 GRC_ACCS = fct_recode(factor(INQ320), "None" = '0', "Car - Pers." = '1', "Car - HH" = '2', "Car - Other" = '3',
+                                                                       "Walk" = '4', "Bike" = '5', "Pub. Trnsp." = '6', "Taxi" = '7',
+                                                                       "Deliv." = '8', "Other/NA" = '9'),
+                                 .keep = "unused")
+```
+
+-------------------------
+
+*New Variables*
+
+(all)
+
+```{r}
+open_data = open_data %>% mutate(ALQ_USE = case_when(ALQ120U == 1 ~ ALQ120Q*52,
+                                                     ALQ120U == 2 ~ ALQ120Q*12,
+                                                     ALQ120U == 3 ~ ALQ120Q),
+                                 BP_LEVELS = case_when(BPXSYM < 120 & BPXDIM < 80 ~ "Normal",
+                                                       between(BPXSYM, 120, 129) & BPXDIM < 80 ~ "Elevated",
+                                                       (BPXSYM > 129 & BPXSYM <= 139)| between(BPXDIM, 80,89) ~ "Stage 1",
+                                                       BPXSYM > 139 | BPXDIM > 90 ~ "Stage 2"),
+                                 FR_LUNCH = case_when(DBQ390 %in% 1:2 | DBQ421 %in% 1:2 ~ 1, DBQ390 == 3 | DBQ421 == 3 ~ 0),
+                                 NUM_DPDNTS = DMDHHSZA + DMDHHSZB,
+                                 .keep = "unused")
+```
+
+> **UPDATE** (v2)
+
+```{r}
+# factored version of `BP_LEVELS`
+open_data$BP_LEVELS = open_data$BP_LEVELS %>% replace_na("Unknown")
+open_data$BP_LEVELS = factor(open_data$BP_LEVELS, levels = c("Normal", "Elevated", "Stage 1", "Stage 2", "Unknown"), ordered = T)
+```
+
+-------------------------
+
+(v1)
+
+```{r}
+open_data = mutate(rowwise(open_data), DEP_SCORE = sum(c_across(DPQ010:DPQ090)), .keep = "unused") %>% ungroup()
+```
+
+> **UPDATE** (v2)
+
+```{r}
+open_data = open_data %>% mutate(across(DPQ010:DPQ090, ~na_if(., 7))) %>% mutate(across(DPQ010:DPQ090, ~na_if(., 9)))
+open_data = mutate(rowwise(open_data), DEP_SCORE = sum(c_across(DPQ010:DPQ090)), .keep = "unused") %>% ungroup()
+```
+
+-------------------------
+
+(all)
+
+```{r}
+open_data = open_data %>% unite(PULSE, BPXCHR:BPXPLS, na.rm = T) %>% 
+  unite(HEALTH_INS, HIQ031A:HIQ031AA, sep = "_", na.rm = T) %>% ## see update below
+  #unite(CANCER_TYPE, MCQ230A:MCQ230D, sep = "_", na.rm = T) %>% ## remove if unwanted
+  unite(SEXUALITY, SXQ295:SXQ296, na.rm = T)
+```
+
+> **UPDATE** (v2)
+
+```{r}
+## can use these or the HEALTH_INS var
+PRV_INS = ifelse(str_detect(open_data$HEALTH_INS, "14") == T, 1, 0)
+MDCR_INS = ifelse(str_detect(open_data$HEALTH_INS, "15") == T, 1, 0)
+MDCD_INS = ifelse(str_detect(open_data$HEALTH_INS, "1(7|8)") == T, 1, 0)
+MILT_INS = ifelse(str_detect(open_data$HEALTH_INS, "19") == T, 1, 0)
+IND_INS = ifelse(str_detect(open_data$HEALTH_INS, "20") == T, 1, 0)
+OGOV_INS = ifelse(str_detect(open_data$HEALTH_INS, "2(1|2)") == T, 1, 0)
+SNGSV_INS = ifelse(str_detect(open_data$HEALTH_INS, "23") == T, 1, 0)
+open_data = cbind(open_data, PRV_INS, MDCR_INS, MDCD_INS, MILT_INS, IND_INS, OGOV_INS, SNGSV_INS)
+
+
+# factored version of `SEXUALITY`
+open_data$SEXUALITY[open_data$SEXUALITY == 9] = 6
+open_data$SEXUALITY = open_data$SEXUALITY %>% as.numeric %>% replace_na(7)
+open_data$SEXUALITY = fct_recode(factor(open_data$SEXUALITY), "Lesb./Gay" = '1', "Straight" = '2', "Bi" = '3', "Other" = '4', "Undec." = '6', "Minor/NA" = '7')
+```
+
+---------------------------------
+
+(all)
+
+```{r}
+open_data = open_data %>% mutate(DMDEDUC3 = case_when(DMDEDUC3 %in% 1:4 | DMDEDUC3 == 55 ~ 1,
+                                                      DMDEDUC3 %in% 5:8 | DMDEDUC3 == 66 ~ 2,
+                                                      DMDEDUC3 %in% 9:12 ~ 3, DMDEDUC3 %in% 13:14 ~ 4,
+                                                      DMDEDUC3 == 15 ~ 5, DMDEDUC3 == 0 ~ 0),
+                                 DMDEDUC2 = case_when(DMDEDUC2 %in% 1:5 ~ DMDEDUC2 + 1)) %>%
+  unite(EDU_LVL, DMDEDUC2:DMDEDUC3, na.rm = T)
+```
+
+> **UPDATE** (v2)
+
+```{r}
+## factored version of `EDU_LVL`
+open_data$EDU_LVL = open_data$EDU_LVL %>% replace_na('7')
+open_data$EDU_LVL = factor(open_data$EDU_LVL, ordered = T, labels = c("None", "Elem.", "Middle", "Some HS",
+                                                           "HS Grad/GED", "> HS/Some College/AA deg.",
+                                                           "College/Grad or >", "Other/NA"))
+```
+
+*Update Variable Descriptions*
+
+(these aren't updated to v2)
+
+```{r}
+health_ins_labels = open_variables[55:65,]
+open_variables = open_variables[-c(all_of(which(open_variables$var_names %in% colnames(open_data) == F))),]
+```
+
+```{r}
+open_data[,c(all_of(which(colnames(open_data) %in% open_variables$var_names == F)))]
+```
+
+```{r}
+open_variables = add_row(open_variables, 
+  var_labels = c("Citizenship status", "Education level", "Marital status", "Total number of people in the Family",
+  "Gender", "Age (years)", "Race/Ethnicity", "Diet Type", "Number of foods/beverages reported",
+  "Energy (kcal)", "Vitamin B12 (mcg)", "Vitamin C (mg)", "Vitamin D (D2 + D3) (mcg)", "Caffeine (mg)",
+  "Alcohol (gm)", "Compare food consumed yesterday to usual", "Total plain water drank yesterday (gm)",
+  "Tap water source", "60 sec HR (30 sec HR * 2)/60 sec. pulse (30 sec. pulse * 2)", "Weight (kg)",
+  "Standing Height (cm)", "Do you now smoke cigarettes?", "Tried to quit smoking", "Health Insurance Coverage",
+  "Type of Cancer", "Sexuality", "# days/yr drink alcohol", "BP Category", "Free or reduced lunch",
+  "Number of people 17 years or younger in household", "Depression Screening Score"),
+  var_names = c("CITZN", "EDU_LVL", "MRTL_ST", "FAM_SZ", "GNDR", "AGE", "RACE_ETH", "DIET", 
+  "NFOOD_TOT", "KCAL_TOT", "VB12_TOT", "VC_TOT", "VD_TOT", "CAFF_TOT", "ALQ_TOT", 
+  "FD_CONS", "H2O_TOT", "TAP_H2O", "PULSE", "WGHT", "HGHT", "SMK_CRNT", "SMK_FREQ",
+  "HEALTH_INS", "CANCER_TYPE", "SEXUALITY", "ALQ_USE", "BP_LEVELS", "FR_LUNCH",
+  "NUM_DPDNTS", "DEP_SCORE"))
+```
+
+(all)
+
+```{r}
+write_csv(open_data, "C:/Users/Lyllian/Desktop/415 final/open_data.csv")
+write_csv(open_variables, "C:/Users/Lyllian/Desktop/415 final/open_vars.csv")
+```
+
